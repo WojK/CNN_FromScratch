@@ -34,15 +34,12 @@ function im2col(A, n, m)
 end
 
 function backward(::BroadcastedOperator{typeof(conv)}, x, w, g)
-    # x -> (28,28,1,1)
-    # w -> (3,3,1,6)
-    # g -> (26,26,6,1)
 
     (H, W, C, _) = size(x)
     (WH, WW, _, K) = size(w)
 
-    g_x = zeros(H, W, C, 1) # (28,28,1,1)
-    g_kernels = zeros(WH, WW, 1, K) # (3,3,1,6)
+    g_x = zeros(H, W, C, 1)
+    g_kernels = zeros(WH, WW, 1, K)
 
     g_h, g_w, _, _ = size(g)
 
