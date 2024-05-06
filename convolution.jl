@@ -3,26 +3,34 @@ include("structures.jl")
 conv(x::GraphNode, w::GraphNode) = BroadcastedOperator(conv, x, w)
 
 function forward(::BroadcastedOperator{typeof(conv)}, x, w)
-
+    
     stride = 1
-
     (H, W, C, _) = size(x)
     (WH, WW, _, K) = size(w)
 
     cnn_h = Int(floor((H - WH) / stride)) + 1
     cnn_w = Int(floor((W - WW) / stride)) + 1
-
+    
     cnn_out = zeros(cnn_h, cnn_w, K, 1)
-
-    for i in 1:cnn_h
-        for j in 1:cnn_w
-            x_field = x[(i-1)*stride+1:(i-1)*stride+WH, (j-1)*stride+1:(j-1)*stride+WW, :, :]
-            x_field_flat = reshape(x_field, WH * WW * C, :)
-            w_flat = reshape(w, WH * WW * C, K)
-            cnn_out[i, j, :] = sum(w_flat .* x_field_flat, dims=1)
+    for c in 1:C
+        x2c = im2col(x[:,:,c,1], WH, WW)
+        for k in 1:K
+            cnn_out[:,:,k,1] .+= reshape(reshape(w[:,:,1,k], 1, WH*WW) * x2c, cnn_h, cnn_w, 1, 1)
         end
     end
     return cnn_out
+end
+
+function im2col(A, n, m)
+    M, N = size(A)
+    B = Array{eltype(A)}(undef, m*n, (M-m+1)*(N-n+1))
+    indx = reshape(1:M*N, M, N)[1:M-m+1, 1:N-n+1]
+    for (i, value) in enumerate(indx)
+        for j = 0:n-1
+            @views B[(i-1)*m*n+j*m+1 : (i-1)*m*n+(j+1)*m] = A[value+j*M:value+m-1+j*M]
+        end 
+    end
+    return B
 end
 
 function backward(::BroadcastedOperator{typeof(conv)}, x, w, g)
